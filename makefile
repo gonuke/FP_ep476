@@ -33,11 +33,14 @@ LDRFLAGS =
 
 # External library paths and libraries can be listed here.
 
-LIBDIR1 = $(HOME)/Documents/ep476/FinalProject/FP_ep476 
+# LIBDIR1 = $(HOME)/Documents/ep476/FinalProject/FP_ep476 
+LIBDIR1 = $(HOME)/tmp/FP_ep476
 LIB1 = tree
 
-MOABDIR = /filespace/groups/cnerg/opt/MOAB/shared-cubit-c12/lib/
-MOABINC = /filespace/groups/cnerg/opt/MOAB/shared-cubit-c12/include/
+# MOABDIR = /filespace/groups/cnerg/opt/MOAB/shared-cubit-c12/lib/
+MOABDIR = /home/wilsonp/.local/moab/4.6.2_nocgm/lib
+# MOABINC = /filespace/groups/cnerg/opt/MOAB/shared-cubit-c12/include/
+MOABINC = /home/wilsonp/.local/moab/4.6.2_nocgm/include
 MOABLIB = MOAB 
 DAGLIB = dagmc
 
@@ -56,6 +59,11 @@ DRIVERS = tree_driver
 
 MODS = tree_data_mod.mod  
 
+PNGS = tree_0.png tree_1.png tree_2.png tree_3.png tree_4.png tree_5.png \
+       tree_6.png tree_7.png
+JPGS = tree_0.jpg tree_1.jpg tree_2.jpg tree_3.jpg tree_4.jpg tree_5.jpg \
+       tree_6.jpg tree_7.jpg
+
 #-----------------------------------------------------------------------
 all : clean tree_driver
 
@@ -68,12 +76,20 @@ all : clean tree_driver
 tree_driver : library
 	@echo "Creating "$@" in directory "$(PWD)"."
 	$(FLDR) $(FFLAGS_DBG) -o $@ $(DRIVERS).f90 $(OBJS) $(CPP_OBJS).cpp -L$(LIBDIR1) -l$(LIB1) \
-      -L$(MOABDIR) -l$(MOABLIB) -l$(DAGLIB) -I$(MOABINC)
+      -L$(MOABDIR) -l$(MOABLIB) -l$(DAGLIB) -I$(MOABINC) -lstdc++
 
 
 library : $(MODS) $(OBJS) 
 	ar -r lib$(LIB1).a $(OBJS)
 	ranlib lib$(LIB1).a
+
+
+pngs : $(PNGS)
+
+jpgs : $(JPGS)
+
+agif : $(PNGS)
+	convert -delay 100 -loop 1 $(PNGS) animated.gif
 
 # The following dependency is similar, but it conditionally
 # replaces the value of FFLAGS with FFLAGS_DBG when
@@ -92,10 +108,16 @@ library : $(MODS) $(OBJS)
 
 # The symbol at the end is a macro for the current source file.
 
+%.png : %.dot
+	dot -Tpng -o $@ $<
+
+%.jpg : %.dot
+	dot -Tjpg -o $@ $<
+
 $(OBJS) : %.o : %.f90
 	$(FCOMP) $(FFLAGS_DBG) -c $<
 
-$(CPP_OBJS) : %.o : %.cpp
+%.o : %.cpp
 	$(CPPCOMP) $(CPPFLAGS_DBG) -c $<
 
 $(MODS) : %.mod : %.f90

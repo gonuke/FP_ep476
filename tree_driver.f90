@@ -142,7 +142,7 @@ module tree_functions_mod
     end subroutine check_kids
     
 
-    subroutine write_tree(node_h)
+    subroutine write_tree(node_h,step)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! This subroutine writes the node-parent relationships to the 
     ! screen and also writes a file (tree.dot) that can be converted 
@@ -153,9 +153,12 @@ module tree_functions_mod
       type(node), pointer, intent(inout) :: node_h
       type(node), pointer                :: cn
       integer :: i
+      integer, intent(in) :: step
+      character(12) :: filename
       
       ! Header of the .dot file
-      open(unit=10, file='tree.dot', status='replace')
+      write(filename,'(A5,i1,a4)') 'tree_',step,'.dot'
+      open(unit=10, file=filename, status='replace')
       write(10, fmt=*)'digraph geometry {' 
       write(10, fmt=*)'size="6,4"; ratio = fill;'
       write(10, fmt=*)'node[style=filled];'
@@ -252,7 +255,7 @@ module tree_insertion_mod
 ! position in the tree.  
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 contains
-    subroutine insert_in_tree(part, head)
+    subroutine insert_in_tree(part, head, step)
       use tree_data_mod
       use tree_functions_mod
       use volume_functions_mod
@@ -264,6 +267,7 @@ contains
       type(node), pointer :: cn        ! current node in tree to test
       type(node), pointer :: next_cn   ! place holder for next cn
       type(node), pointer :: cn_parent ! place holder for cn's parent
+      integer, intent(in) :: step
     
       logical :: insertion ! True if new part inserted into tree 
       logical :: inside    ! T/F result from A in B query
@@ -316,6 +320,8 @@ contains
        
       end do
     
+      call write_tree(head,step)
+
     end subroutine insert_in_tree
 
 end module tree_insertion_mod
@@ -346,10 +352,14 @@ integer :: vols, dagmc_num_vol ! number of volumes in geometry
 integer :: dagmc_vol_id        ! volume ID number from output dagmc function
 integer :: i, vol_id           
 integer :: ios                 ! input/output status
-integer, dimension(6) :: vol_parse_order ! array of length, vols, used to 
+integer, allocatable :: vol_parse_order(:) ! array of length, vols, used to 
                                          ! change order volumes are parsed
 
+real :: rand_num
+
 character(len=80) :: filename   ! name of geometry file
+character(20) :: rand_arg
+integer :: rand_seed
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Setup DAGMC problem (use idagmc.cpp)
@@ -396,7 +406,21 @@ CALL create_node(-1, head)
 ! are seen. (This is only for this particular 6 volume geometry)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-vol_parse_order = (/ 6, 2, 5, 3, 4, 1 /)
+CALL getarg(1,rand_arg)
+read(rand_arg,*) rand_seed
+
+do i = 1, rand_seed
+   call random_number(rand_num)
+end do
+
+allocate( vol_parse_order(1:(vols-1)) )
+
+do i = 1, vols-1
+   call random_number(rand_num)
+   vol_id = rand_num*i + 1
+   vol_parse_order(i) = vol_parse_order(vol_id)
+   vol_parse_order(vol_id) = i
+end do
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! This loop will get the correct volume ID number from the 
@@ -413,7 +437,7 @@ do i=1, vols-1
  write(*,*) 'Volume ', i, ' has ID ', vol_id
 
  CALL create_node(vol_id,tmp_node)
- CALL insert_in_tree(tmp_node, head)
+ CALL insert_in_tree(tmp_node, head,i)
 
 end do
 
@@ -425,7 +449,7 @@ end do
 ! >> dot -Tpng tree.dot -o tree.png
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-CALL write_tree(head)
+CALL write_tree(head,0)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! If the file with surface points could not be found or opened, 
